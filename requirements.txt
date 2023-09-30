@@ -1,0 +1,9 @@
+pandas
+fastapi==0.95.1
+sqlalchemy>=2.0.10
+python-dotenv
+uvicorn >= 0.2.3
+numpy
+psycopg2
+reliability
+alembic

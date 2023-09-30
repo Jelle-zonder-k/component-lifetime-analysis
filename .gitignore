@@ -1,0 +1,8 @@
+.venv
+.env
+venv
+__pycache__/
+.vscode
+data
+alembic
+alembic.ini
