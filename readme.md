@@ -1,11 +1,19 @@
 # Component Lifetime Data Project
 
-This project provides a system to store, manage, and analyze the lifetime data of components related to storm surge barriers. The project is centered around a FastAPI application that exposes endpoints for various CRUD operations, enabling users to capture details of component lifetimes, insert new component data, fetch lifetime intervals, among other tasks. The primary data storage solution is a PostgreSQL database, which is easily manageable using DBeaver.
+This project is dedicated to cataloging and analyzing the lifetime data of components associated with storm surge barriers. At its core, this system utilizes FastAPI to offer accessible endpoints for CRUD operations. This way, users can easily capture, insert, and fetch data related to component lifetimes. The primary storage for this data is a PostgreSQL database. The convenient DBeaver tool allows for easy database management.
 
 ## Introduction
 
-Storm surge barriers play a pivotal role in protecting low-lying regions from potential floods due to rising sea levels and frequent storm surges. To ensure their reliability, it's crucial to closely monitor the lifetime and reliability of individual components. This project serves as a comprehensive database system that catalogs component lifetime data, thereby aiding in the understanding of the overall reliability behavior of storm surge barriers over time. Using the FastAPI framework, we provide a robust and user-friendly API to seamlessly interact with this database.
+Storm surge barriers are integral in safeguarding low-lying areas from potential flood threats due to rising sea levels and frequent storm surges. Maintaining the reliability of these barriers means monitoring the lifetimes and reliability of individual components. This project provides a specialized database system to hold component lifetime data, which in turn, facilitates a better understanding of storm surge barriers' reliability over time. By employing the FastAPI framework, this project offers a robust, user-friendly API for seamless interaction with the database. Whether you are looking to conduct research on component lifetimes or need a reliable system for data storage, this project is tailored to serve your needs.
 
+## Tools and Methods Used
+
+- **FastAPI**: A modern web framework to build efficient and scalable APIs.
+- **Uvicorn**: An ASGI server to run the FastAPI application and handle external requests.
+- **SQLAlchemy**: A versatile ORM for database operations.
+- **PostgreSQL**: A powerful relational database system.
+- **DBeaver**: A database management tool suitable for developers and database administrators.
+- **Alembic**: A database migration tool that works with SQLAlchemy to manage and version database schema.
 ## Setting Up Development Environment
 
 ### Creating a Python Virtual Environment
@@ -178,6 +186,10 @@ Alembic is a database migration tool for SQLAlchemy, the ORM (Object Relational 
 
     This command will undo the most recent migration.
 
-### Additional Resources
+## Additional Resources
 
 For more comprehensive details on Alembic, refer to the [official documentation](https://alembic.sqlalchemy.org/en/latest/index.html).
+
+For a deeper dive into FastAPI and its capabilities, check out the [official FastAPI documentation](https://fastapi.tiangolo.com/).
+
+For detailed documenation on the Surpyval library, check out the [Surpyval Documenation](https://surpyval.readthedocs.io/en/latest/Quickstart.html)
