@@ -6,7 +6,10 @@ from typing import Dict, List, Union
 from datetime import datetime
 from sqlalchemy import func, text
 from datetime import datetime
-import logging
+from models.distribution_fitter import fit_distributions_to_data
+from data_processing.lifetime_processor import LifetimeProcessor
+from statistical_tests.ks_test import calculate_ks_statistic
+from statistical_tests.bootstrap_handler import bootstrap_p_value
 
 
 @dataclass
@@ -177,51 +180,124 @@ class ComponentDataHandler:
 
         lifetime_list = []
 
-        # Observable Malfunctions - Assuming Observable is a boolean column in MalfunctionRecord model
+        # Check for Observable Malfunctions
+        # This assumes Observable is a boolean column in the MalfunctionRecord model
         if any([m.Observable for m in malfunctions]):
+
+            # Loop through each object lifetime
             for ol in object_lifetimes:
-                # If object has an end date, compute lifetime directly
+
+                # If the object has an end date, it's a complete failure
                 if ol.EndDate:
-                    # Convert to hours
+                    # Calculate the lifetime in hours
                     lifetime = (
                         ol.EndDate - ol.StartDate).total_seconds() / 3600.0
-                    lifetime_list.append(lifetime)
-                # If object doesn't have an end date, use observation period to compute lifetime
+                    # Append the lifetime and its censoring type (0 for complete) to the list
+                    lifetime_list.append(
+                        {"lifetime": lifetime, "censoring": 0})
+
+                # If the object doesn't have an end date, it's right-censored
                 else:
+                    # Calculate the right-censored lifetime in hours
                     lifetime = (end_observation_period -
                                 ol.StartDate).total_seconds() / 3600.0
-                    lifetime_list.append(lifetime)
+                    # Append the right-censored lifetime and its censoring type (1 for right-censored) to the list
+                    lifetime_list.append(
+                        {"lifetime": lifetime, "censoring": 1})
 
-            # Compute lifetime for unobserved objects
+            # Calculate the number of unobserved objects
             unobserved_objects_count = num_objects - len(set(object_ids))
+            # Calculate the lifetime for unobserved objects in hours
             unobserved_lifetime = (
                 end_observation_period - earliest_lifetime_start).total_seconds() / 3600.0
-            lifetime_list.extend([unobserved_lifetime] *
-                                 unobserved_objects_count)
+            # Extend the list with the lifetimes of unobserved objects, which are all right-censored
+            lifetime_list.extend(
+                [{"lifetime": unobserved_lifetime, "censoring": 1}] * unobserved_objects_count)
 
-        # Non-Observable Malfunctions
+        # If the malfunctions are Non-Observable
         else:
+
+            # Loop through each object lifetime
             for ol in object_lifetimes:
-                # If object has an end date, compute range of lifetimes between interval start and interval end
+
+                # If the object has an end date, it's interval-censored
                 if ol.EndDate:
+                    # Calculate the start and end lifetimes for the interval in hours
                     start_lifetime = (ol.IntervalStart -
                                       ol.StartDate).total_seconds() / 3600.0
                     end_lifetime = (ol.IntervalEnd -
                                     ol.StartDate).total_seconds() / 3600.0
-                    lifetime_list.append([start_lifetime, end_lifetime])
-                # If object doesn't have an end date, use observation period to compute lifetime
+                    # Append the interval-censored lifetimes and its censoring type (2 for interval-censored) to the list
+                    lifetime_list.append(
+                        {"lifetime": [start_lifetime, end_lifetime], "censoring": 2})
+
+                # If the object doesn't have an end date, it's right-censored
                 else:
+                    # Calculate the right-censored lifetime in hours
                     lifetime = (end_observation_period -
                                 ol.StartDate).total_seconds() / 3600.0
-                    lifetime_list.append(lifetime)
+                    # Append the right-censored lifetime and its censoring type (1 for right-censored) to the list
+                    lifetime_list.append(
+                        {"lifetime": lifetime, "censoring": 1})
 
-            # Compute lifetime for unobserved objects
+            # Calculate the number of unobserved objects
             unobserved_objects_count = num_objects - len(set(object_ids))
+            # Calculate the lifetime for unobserved objects in hours
             unobserved_lifetime = (
                 end_observation_period - earliest_lifetime_start).total_seconds() / 3600.0
-            lifetime_list.extend([unobserved_lifetime] *
-                                 unobserved_objects_count)
+            # Extend the list with the lifetimes of unobserved objects, which are all right-censored
+            lifetime_list.extend(
+                [{"lifetime": unobserved_lifetime, "censoring": 1}] * unobserved_objects_count)
 
+        # Close the database session
         session.close()
 
+        # Return the list of lifetimes with their respective censoring types
         return lifetime_list
+
+    def get_fit_lifetime_distributions(self, lifetimes) -> dict:
+        # Fit distributions
+        fits = fit_distributions_to_data(lifetimes)
+
+        # Convert fits to the desired dictionary format
+        results = {
+            "weibull": {
+                "alpha": fits["weibull"].params[0],
+                "beta": fits["weibull"].params[1]
+            },
+            "exponential": {
+                "lambda_": fits["exponential"].params[0]
+            }
+        }
+        return results
+
+    def get_goodness_of_fit_statistics(self, lifetime: list, number_of_samples) -> dict:
+        # Get the distribution fits
+        fits = fit_distributions_to_data(lifetime)
+
+        # Extract lifetimes and censoring arrays
+        processor = LifetimeProcessor(lifetime)
+        lifetime_array, censoring_array = processor.process_interval_censoring()
+
+        # Get bootstrapped p-values
+        weibull_p_value, exponential_p_value, number_of_samples = bootstrap_p_value(
+            lifetime_array, censoring_array, number_of_samples)
+        test_statistics = calculate_ks_statistic(
+            lifetime_array, censoring_array)
+        # Extract AIC values directly from fits
+        goodness_of_fit_stats = {
+            "weibull": {
+                "aic": fits["weibull"].aic(),
+                "KS test statistic": test_statistics[0],
+                "p_value": weibull_p_value
+            },
+            "exponential": {
+                "aic": fits["exponential"].aic(),
+                "KS test statistic": test_statistics[1],
+                "p_value": exponential_p_value
+            },
+            "general information": {
+                "number of samples": number_of_samples
+            }
+        }
+        return goodness_of_fit_stats
