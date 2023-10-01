@@ -2,8 +2,7 @@ from fastapi import FastAPI
 from typing import List
 from datetime import date
 from data_handler import ComponentDataHandler
-from pydantic_model import ObjectCode, FailureTypeCode, MaintenanceGroup, MalfunctionRecord, LifetimeInput
-
+from pydantic_model import ObjectCode, FailureTypeCode, MaintenanceGroup, MalfunctionRecord, LifetimesResponse, GoodnessOfFitResponse, DistributionModelResponse
 app = FastAPI()
 
 DATA_HANDLER = ComponentDataHandler()
@@ -35,8 +34,22 @@ async def upsert_malfunctions(malfunctions: List[MalfunctionRecord]):
     return {"message": f"{len(malfunctions)} malfunction(s) processed."}
 
 
-@app.get("/calculate_lifetimes/")
-async def calculate_lifetimes(failure_type_code: str, num_objects: int, end_observation_period: date):
+@app.get("/calculate_lifetimes/", response_model=LifetimesResponse)
+async def calculate_lifetimes(failure_type_code: str, num_objects: int, end_observation_period: date = '2016-06-30'):
     lifetimes = DATA_HANDLER.calculate_lifetimes(
         failure_type_code, num_objects, end_observation_period)
     return {"lifetimes": lifetimes}
+
+
+@app.get("/distribution_model/fit_parameters/", response_model=DistributionModelResponse)
+def get_fitted_distributions(failure_type_code: str, num_objects: int, end_observation_period: date = '2016-06-30'):
+    lifetimes = DATA_HANDLER.calculate_lifetimes(
+        failure_type_code, num_objects, end_observation_period)
+    return DATA_HANDLER.get_fit_lifetime_distributions(lifetimes)
+
+
+@app.get("/distribution_model/goodness-of-fit/", response_model=GoodnessOfFitResponse)
+def get_fit_statistics(failure_type_code: str, num_objects: int, end_observation_period: date = '2016-06-30', number_of_bootstrap_samples: int = 100):
+    lifetimes = DATA_HANDLER.calculate_lifetimes(
+        failure_type_code, num_objects, end_observation_period)
+    return DATA_HANDLER.get_goodness_of_fit_statistics(lifetimes, number_of_bootstrap_samples)

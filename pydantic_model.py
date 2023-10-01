@@ -79,3 +79,42 @@ class LifetimeInput(BaseModel):
     FailureTypeCode: str
     NumberOfObjects: int
     ObservationEndTime: date
+
+
+class LifetimeItem(BaseModel):
+    lifetime: float
+    censoring: int
+
+
+class LifetimesResponse(BaseModel):
+    lifetimes: List[LifetimeItem]
+
+
+class DistributionFitWeibull(BaseModel):
+    alpha: float
+    beta: float
+
+
+class DistributionFitExponential(BaseModel):
+    lambda_: float
+
+
+class GoodnessOfFit(BaseModel):
+    aic: float
+    KS_test_statistic: float
+    p_value: float
+
+
+class GeneralInformation(BaseModel):
+    number_of_samples: int
+
+
+class DistributionModelResponse(BaseModel):
+    weibull: DistributionFitWeibull
+    exponential: DistributionFitExponential
+
+
+class GoodnessOfFitResponse(BaseModel):
+    weibull: GoodnessOfFit
+    exponential: GoodnessOfFit
+    general_information: GeneralInformation
