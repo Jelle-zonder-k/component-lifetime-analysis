@@ -38,22 +38,3 @@ class DistributionFitter:
             "beta": weibull_fit.params[1],
             "AIC": weibull_fit.aic()
         }
-
-    def fit_exponential_with_initial_guess(self, lifetime_array, censoring_array, initial_guess: list = []) -> dict:
-        """Fits an Exponential distribution to the data using an initial guess.
-
-        Args:
-            lifetime_array (_type_): _description_
-            censoring_array (_type_): _description_
-            initial_guess (list, optional): _description_. Defaults to [].
-
-        Returns:
-            dict: _description_
-        """
-        exponential_fit = sp.Exponential.fit(
-            lifetime_array, censoring_array, init=initial_guess)
-
-        return {
-            "lambda": exponential_fit.params[0],
-            "AIC": exponential_fit.aic()
-        }

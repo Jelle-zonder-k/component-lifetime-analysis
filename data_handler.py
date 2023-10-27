@@ -9,7 +9,6 @@ from datetime import datetime
 from models.surpyval_distribution_fitter import DistributionFitter
 from statistical_tests.test_statistic_handler import TestStatisticHandler, calculate_ks_statistic
 from data_processing.lifetime_processor import LifetimeProcessor
-from pydantic_model import GoodnessOfFitResponse
 
 
 @dataclass
