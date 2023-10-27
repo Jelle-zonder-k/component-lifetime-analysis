@@ -86,6 +86,8 @@ class ObjectLifetime(Base):
         String(36), primary_key=True, default=str(uuid.uuid4()))
     ObjectCodeID: Mapped[str] = mapped_column(
         String(36), ForeignKey('ObjectCode.ID'))
+    FailureTypeCodeID: Mapped[str] = mapped_column(
+        String(36), ForeignKey(FailureTypeCode.ID))
     StartDate: Mapped[date] = mapped_column(Date, nullable=False)
     StartTime: Mapped[Time] = mapped_column(Time, nullable=True)
     EndDate: Mapped[date] = mapped_column(Date, nullable=True)

@@ -81,26 +81,18 @@ class LifetimeInput(BaseModel):
     ObservationEndTime: date
 
 
-class LifetimeItem(BaseModel):
-    lifetime: float
-    censoring: int
-
-
-class LifetimesResponse(BaseModel):
-    lifetimes: List[LifetimeItem]
-
-
 class DistributionFitWeibull(BaseModel):
     alpha: float
     beta: float
+    aic: float
 
 
 class DistributionFitExponential(BaseModel):
     lambda_: float
+    aic: float
 
 
 class GoodnessOfFit(BaseModel):
-    aic: float
     KS_test_statistic: float
     p_value: float
 
@@ -115,6 +107,6 @@ class DistributionModelResponse(BaseModel):
 
 
 class GoodnessOfFitResponse(BaseModel):
-    weibull: GoodnessOfFit
     exponential: GoodnessOfFit
+    weibull: GoodnessOfFit
     general_information: GeneralInformation

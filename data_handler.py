@@ -6,10 +6,10 @@ from typing import Dict, List, Union
 from datetime import datetime
 from sqlalchemy import func, text
 from datetime import datetime
-from models.distribution_fitter import fit_distributions_to_data
+from models.surpyval_distribution_fitter import DistributionFitter
+from statistical_tests.test_statistic_handler import TestStatisticHandler, calculate_ks_statistic
 from data_processing.lifetime_processor import LifetimeProcessor
-from statistical_tests.ks_test import calculate_ks_statistic
-from statistical_tests.bootstrap_handler import bootstrap_p_value
+from pydantic_model import GoodnessOfFitResponse
 
 
 @dataclass
@@ -170,11 +170,12 @@ class ComponentDataHandler:
         malfunctions = session.query(data_model.MalfunctionRecord).filter_by(
             FailureTypeCodeID=failure_type.ID).all()
 
+        failure_type_ids = [m.FailureTypeCodeID for m in malfunctions]
         object_ids = [m.ObjectCodeID for m in malfunctions]
 
         # Get the corresponding ObjectLifetime records
         object_lifetimes = session.query(data_model.ObjectLifetime).filter(
-            data_model.ObjectLifetime.ObjectCodeID.in_(object_ids)).all()
+            data_model.ObjectLifetime.FailureTypeCodeID.in_(failure_type_ids)).all()
         earliest_lifetime_start = session.query(
             func.min(data_model.ObjectLifetime.StartDate)).first()[0]
 
@@ -251,53 +252,107 @@ class ComponentDataHandler:
 
         # Close the database session
         session.close()
-
         # Return the list of lifetimes with their respective censoring types
         return lifetime_list
 
     def get_fit_lifetime_distributions(self, lifetimes) -> dict:
         # Fit distributions
-        fits = fit_distributions_to_data(lifetimes)
+        ModelFitter = DistributionFitter()
+        Processor = LifetimeProcessor(lifetimes)
+        lifetime_array, censoring_array = Processor.get_lifetime_arrays()
+        fits = ModelFitter.fit_distributions_to_data(
+            lifetime_array, censoring_array)
 
         # Convert fits to the desired dictionary format
         results = {
             "weibull": {
                 "alpha": fits["weibull"].params[0],
-                "beta": fits["weibull"].params[1]
+                "beta": fits["weibull"].params[1],
+                "aic": fits["weibull"].aic()
             },
             "exponential": {
-                "lambda_": fits["exponential"].params[0]
+                "lambda_": fits["exponential"].params[0],
+                "aic": fits["exponential"].aic()
             }
         }
         return results
 
-    def get_goodness_of_fit_statistics(self, lifetime: list, number_of_samples) -> dict:
+    def get_fit_weibull_lifetime_distributions_with_initial_guess(self, lifetimes, initial_guess: List = []) -> dict:
+        # Fit distributions
+        ModelFitter = DistributionFitter()
+        Processor = LifetimeProcessor(lifetimes)
+        lifetime_array, censoring_array = Processor.get_lifetime_arrays()
+        weibull_fit = ModelFitter.fit_weibull_with_initial_guess(
+            lifetime_array, censoring_array, initial_guess
+        )
+
+        # Convert fits to the desired dictionary format
+        return weibull_fit
+
+    def get_fit_exponential_lifetime_distributions(self, lifetimes: list) -> dict:
+        # Fit distributions
+        ModelFitter = DistributionFitter()
+        Processor = LifetimeProcessor(lifetimes)
+        lifetime_array, censoring_array = Processor.get_lifetime_arrays()
+        exponential_fit = ModelFitter.fit_exponential_with_initial_guess(
+            lifetime_array, censoring_array
+        )
+
+        # Convert fits to the desired dictionary format
+        return exponential_fit
+
+    def optimize_weibull_fit(self, lifetimes, runs=100, relative_precision: float = 0.001, ) -> dict:
+        # Fit an initial weibull disitrbution with empty initial guess, then do a while loop until both alpha and beta converge to a relative precision e.g. 0.001 or until a predefined number of runs has been executed.
+        ModelFitter = DistributionFitter()
+        weibull_fit = ModelFitter.fit_weibull_with_initial_guess(
+            lifetimes, [])
+        alpha = 0.8*weibull_fit["alpha"]
+        beta = 0.8*weibull_fit["beta"]
+        i = 0
+        while i < runs:
+            weibull_fit = ModelFitter.fit_weibull_with_initial_guess(
+                lifetimes, [alpha, beta])
+            alpha_new = weibull_fit["alpha"]
+            beta_new = weibull_fit["beta"]
+            if abs(alpha_new - alpha) < relative_precision and abs(beta_new - beta) < relative_precision:
+                break
+            alpha = alpha_new
+            beta = beta_new
+            i += 1
+        return weibull_fit
+
+    def get_goodness_of_fit_statistics(self, lifetimes: list, number_of_samples=None, initial_guess: List = []) -> dict:
         # Get the distribution fits
-        fits = fit_distributions_to_data(lifetime)
-
         # Extract lifetimes and censoring arrays
-        processor = LifetimeProcessor(lifetime)
-        lifetime_array, censoring_array = processor.process_interval_censoring()
+        processor = LifetimeProcessor(lifetimes)
+        simplified_lifetime_array, simplified_censoring_array = processor.get_simplified_lifetime_arrays()
 
+        # Initialise the statistical test handler
+        test_handler = TestStatisticHandler(
+            simplified_lifetime_array, simplified_censoring_array, initial_guess)
+        # Fit distributions
+        # fits = ModelFitter.fit_distributions_to_data(
+        #     simplified_lifetime_array, simplified_censoring_array)
         # Get bootstrapped p-values
-        weibull_p_value, exponential_p_value, number_of_samples = bootstrap_p_value(
-            lifetime_array, censoring_array, number_of_samples)
+        weibull_p_value, exponential_p_value, number_of_samples = test_handler.bootstrap_p_value(
+            number_of_samples)
+
         test_statistics = calculate_ks_statistic(
-            lifetime_array, censoring_array)
-        # Extract AIC values directly from fits
-        goodness_of_fit_stats = {
-            "weibull": {
-                "aic": fits["weibull"].aic(),
-                "KS test statistic": test_statistics[0],
-                "p_value": weibull_p_value
-            },
+            simplified_lifetime_array, simplified_censoring_array, initial_guess)
+
+        # Generate the response
+
+        response = {
             "exponential": {
-                "aic": fits["exponential"].aic(),
-                "KS test statistic": test_statistics[1],
+                "KS_test_statistic": test_statistics[1],
                 "p_value": exponential_p_value
             },
-            "general information": {
-                "number of samples": number_of_samples
+            "weibull": {
+                "KS_test_statistic": test_statistics[0],
+                "p_value": weibull_p_value
+            },
+            "general_information": {
+                "number_of_samples": number_of_samples
             }
         }
-        return goodness_of_fit_stats
+        return response
