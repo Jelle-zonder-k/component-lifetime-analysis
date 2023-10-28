@@ -6,9 +6,12 @@ from typing import Dict, List, Union
 from datetime import datetime
 from sqlalchemy import func, text
 from datetime import datetime
-from models.surpyval_distribution_fitter import DistributionFitter
-from statistical_tests.test_statistic_handler import TestStatisticHandler, calculate_ks_statistic
-from data_processing.lifetime_processor import LifetimeProcessor
+from fitters.surpyval_distribution_fitter import DistributionFitter
+from statisticaltesters.handler import BootstrapHandler, calculate_ks_statistic
+from dataprocessing.lifetime_processor import LifetimeProcessor
+from image_handler import ImageHandler
+
+IMAGE_HANDLER = ImageHandler()
 
 
 @dataclass
@@ -276,7 +279,7 @@ class ComponentDataHandler:
         }
         return results
 
-    def get_fit_weibull_lifetime_distributions_with_initial_guess(self, lifetimes, initial_guess: List = []) -> dict:
+    def get_fit_weibull_lifetime_distributions_with_initial_guess(self, lifetimes, initial_guess: list = []) -> dict:
         # Fit distributions
         ModelFitter = DistributionFitter()
         Processor = LifetimeProcessor(lifetimes)
@@ -293,65 +296,51 @@ class ComponentDataHandler:
         ModelFitter = DistributionFitter()
         Processor = LifetimeProcessor(lifetimes)
         lifetime_array, censoring_array = Processor.get_lifetime_arrays()
-        exponential_fit = ModelFitter.fit_exponential_with_initial_guess(
-            lifetime_array, censoring_array
-        )
+        exponential_fit = ModelFitter.fit_exponential(
+            lifetime_array, censoring_array)
 
         # Convert fits to the desired dictionary format
         return exponential_fit
 
-    def optimize_weibull_fit(self, lifetimes, runs=100, relative_precision: float = 0.001, ) -> dict:
-        # Fit an initial weibull disitrbution with empty initial guess, then do a while loop until both alpha and beta converge to a relative precision e.g. 0.001 or until a predefined number of runs has been executed.
-        ModelFitter = DistributionFitter()
-        weibull_fit = ModelFitter.fit_weibull_with_initial_guess(
-            lifetimes, [])
-        alpha = 0.8*weibull_fit["alpha"]
-        beta = 0.8*weibull_fit["beta"]
-        i = 0
-        while i < runs:
-            weibull_fit = ModelFitter.fit_weibull_with_initial_guess(
-                lifetimes, [alpha, beta])
-            alpha_new = weibull_fit["alpha"]
-            beta_new = weibull_fit["beta"]
-            if abs(alpha_new - alpha) < relative_precision and abs(beta_new - beta) < relative_precision:
-                break
-            alpha = alpha_new
-            beta = beta_new
-            i += 1
-        return weibull_fit
+    def get_test_statistics_dict(self, lifetimes: list, number_of_samples=1000, initial_guess: list = []) -> dict:
+        # get bootstrapped test statistics
+        bootstrap_dict = self.get_bootstrap_dict(
+            lifetimes, number_of_samples, initial_guess)
 
-    def get_goodness_of_fit_statistics(self, lifetimes: list, number_of_samples=None, initial_guess: List = []) -> dict:
-        # Get the distribution fits
+        # get original test statistics
+        weibull_test_statistic, exponential_test_statistic = self.get_test_statistics(
+            lifetimes, initial_guess)
+
+        # Create test statistics dictionary
+        test_statistics = {
+            "Weibull": {
+                "bootstrap_samples": bootstrap_dict["Weibull"]["bootstrap_samples"],
+                "original_test_statistic": weibull_test_statistic
+            },
+            "Exponential": {
+                "bootstrap_samples": bootstrap_dict["Exponential"]["bootstrap_samples"],
+                "original_test_statistic": exponential_test_statistic
+            }
+        }
+        return test_statistics
+
+    def get_bootstrap_dict(self, lifetimes: list, number_of_samples=None, initial_guess: list = []) -> dict:
         # Extract lifetimes and censoring arrays
         processor = LifetimeProcessor(lifetimes)
         simplified_lifetime_array, simplified_censoring_array = processor.get_simplified_lifetime_arrays()
-
         # Initialise the statistical test handler
-        test_handler = TestStatisticHandler(
+        test_handler = BootstrapHandler(
             simplified_lifetime_array, simplified_censoring_array, initial_guess)
-        # Fit distributions
-        # fits = ModelFitter.fit_distributions_to_data(
-        #     simplified_lifetime_array, simplified_censoring_array)
-        # Get bootstrapped p-values
-        weibull_p_value, exponential_p_value, number_of_samples = test_handler.bootstrap_p_value(
+        # Generate bootstrap dict
+        bootstrap_dict = test_handler.bootstrap_test_statistic_values(
             number_of_samples)
+        return bootstrap_dict
 
-        test_statistics = calculate_ks_statistic(
+    def get_test_statistics(self, lifetimes: list, initial_guess: list = []):
+        # Extract lifetimes and censoring arrays
+        processor = LifetimeProcessor(lifetimes)
+        simplified_lifetime_array, simplified_censoring_array = processor.get_simplified_lifetime_arrays()
+        # Calculate Original Test Statistic
+        weibull_test_statistic, exponential_test_statistic = calculate_ks_statistic(
             simplified_lifetime_array, simplified_censoring_array, initial_guess)
-
-        # Generate the response
-
-        response = {
-            "exponential": {
-                "KS_test_statistic": test_statistics[1],
-                "p_value": exponential_p_value
-            },
-            "weibull": {
-                "KS_test_statistic": test_statistics[0],
-                "p_value": weibull_p_value
-            },
-            "general_information": {
-                "number_of_samples": number_of_samples
-            }
-        }
-        return response
+        return weibull_test_statistic, exponential_test_statistic

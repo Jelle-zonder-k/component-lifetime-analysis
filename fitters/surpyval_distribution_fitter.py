@@ -36,5 +36,22 @@ class DistributionFitter:
         return {
             "alpha": weibull_fit.params[0],
             "beta": weibull_fit.params[1],
-            "AIC": weibull_fit.aic()
+            "AIC": weibull_fit.aic(),
+        }
+
+    def fit_exponential(self, lifetime_array, censoring_array) -> dict:
+        """Fits an Exponential distribution to the data.
+        Args:
+            data (list): _description_
+
+        Returns:
+            dict: _description_
+        """
+
+        # Fit Weibull and Exponential distributions
+        exponential_fit = sp.Exponential.fit(lifetime_array, censoring_array)
+
+        return {
+            "lambda": exponential_fit.params[0],
+            "AIC": exponential_fit.aic()
         }
