@@ -3,9 +3,11 @@ import surpyval as sp
 import numpy as np
 from image_handler import ImageHandler
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from fitters.surpyval_distribution_fitter import DistributionFitter
 from time import time
 # Class that handles all the aspects of the statistical tests
 IMAGE_HANDLER = ImageHandler()
+DISTRIBUTION_FITTER = DistributionFitter()
 
 
 def bootstrap_worker(instance, _):
@@ -111,12 +113,16 @@ def calculate_p_value(bootstrap_values: list, original_value) -> float:
 
 
 def calculate_ks_statistic(lifetime_samples: list[float], lifetime_sample_censoring: list[int], initial_guess=None) -> Tuple[float, float]:
-    weibull_model = sp.Weibull.fit(
-        lifetime_samples, lifetime_sample_censoring, init=initial_guess)
-    exponential_model = sp.Exponential.fit(
+
+    # Get distribution model fits
+    parametric_distribution_models = DISTRIBUTION_FITTER.fit_parametric_distributions_to_data(
+        lifetime_samples, lifetime_sample_censoring, initial_guess)
+    non_parametric_distribution_models = DISTRIBUTION_FITTER.fit_non_parametric_distributions_to_data(
         lifetime_samples, lifetime_sample_censoring)
-    nelson_aalen_estimate = sp.NelsonAalen.fit(
-        lifetime_samples, lifetime_sample_censoring)
+
+    weibull_model = parametric_distribution_models["weibull"]
+    exponential_model = parametric_distribution_models["exponential"]
+    nelson_aalen_estimate = non_parametric_distribution_models["nelson_aalen"]
 
     unique_samples = np.unique(lifetime_samples)
     weibull_diffs = [abs(est - np.exp(- (x / weibull_model.params[0]) ** weibull_model.params[1]))

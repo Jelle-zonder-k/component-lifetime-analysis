@@ -262,7 +262,7 @@ class ComponentDataHandler:
         ModelFitter = DistributionFitter()
         Processor = LifetimeProcessor(lifetimes)
         lifetime_array, censoring_array = Processor.get_lifetime_arrays()
-        fits = ModelFitter.fit_distributions_to_data(
+        fits = ModelFitter.fit_parametric_distributions_to_data(
             lifetime_array, censoring_array)
 
         # Convert fits to the desired dictionary format

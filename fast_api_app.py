@@ -75,7 +75,7 @@ async def calculate_lifetimes_count(failure_type_code: str, num_objects: int, en
 
 
 @app.post("/distribution_model/goodness-of-fit/", response_model=GoodnessOfFitResponse)
-async def get_fit_statistics(failure_type_code: str, num_objects: int, end_observation_period: date = '2016-06-30', number_of_bootstrap_samples: int = 100, initial_guess: list[float, float] = [1, 1]):
+async def get_fit_statistics(failure_type_code: str, num_objects: int, end_observation_period: date = '2016-06-30', number_of_bootstrap_samples: int = 1000, initial_guess: list[float, float] = [1, 1]):
     lifetimes = DATA_HANDLER.calculate_lifetimes(
         failure_type_code, num_objects, end_observation_period)
 
@@ -117,3 +117,17 @@ async def get_exponential_model_CDF_plot(failure_type_code: str, num_objects: in
     lifetimes = DATA_HANDLER.calculate_lifetimes(
         failure_type_code, num_objects, end_observation_period)
     return FileResponse(IMAGE_HANDLER.get_exponential_model_CDF_plot(lifetimes, failure_type_code))
+
+
+@app.post("/distribution_model/weibull/plot/")
+async def get_weibull_model_CDF_plot(failure_type_code: str, num_objects: int, end_observation_period: date = '2016-06-30', initial_guess: list[float, float] = [1, 1]):
+    lifetimes = DATA_HANDLER.calculate_lifetimes(
+        failure_type_code, num_objects, end_observation_period)
+    return FileResponse(IMAGE_HANDLER.get_weibull_model_CDF_plot(lifetimes, failure_type_code))
+
+
+@app.post("/distribution_model/plot/hazard-function/")
+async def get_hazard_function_plot(failure_type_code: str, num_objects: int, end_observation_period: date = '2016-06-30', initial_guess: list[float, float] = [1, 1]):
+    lifetimes = DATA_HANDLER.calculate_lifetimes(
+        failure_type_code, num_objects, end_observation_period)
+    return FileResponse(IMAGE_HANDLER.get_hazard_function_plot(failure_type_code, lifetimes, initial_guess))

@@ -6,3 +6,4 @@ class PlotTypes(Enum):
     HISTOGRAM = 1
     CDF = 2
     CSF = 3
+    HAZARD_FUNCTION = 4

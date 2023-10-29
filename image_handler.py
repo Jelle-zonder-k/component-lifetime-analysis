@@ -3,6 +3,9 @@ import surpyval as sp
 import matplotlib.pyplot as plt
 from enum_handler import PlotTypes
 from dataprocessing.lifetime_processor import LifetimeProcessor
+from fitters.surpyval_distribution_fitter import DistributionFitter
+
+DISTRIBUTION_FITTER = DistributionFitter()
 
 
 class ImageHandler:
@@ -38,7 +41,7 @@ class ImageHandler:
         plt.close
         return image_path
 
-    def get_weibull_model_CDF_plot(self, lifetimes: list, failure_type_code: str):
+    def get_weibull_model_CDF_plot(self, lifetimes: list, failure_type_code: str, initial_guess: list = None):
         """ Returns the image of the weibull model fit for the given failure type code and number of objects.
 
         Args:
@@ -49,7 +52,8 @@ class ImageHandler:
 
         Processor = LifetimeProcessor(lifetimes)
         lifetime_array, censoring_array = Processor.get_lifetime_arrays()
-        weibull_fit = sp.Weibull.fit(lifetime_array, censoring_array)
+        weibull_fit = sp.Weibull.fit(
+            lifetime_array, censoring_array, init=initial_guess)
         image_path = self.get_image_path_for_type_code_plot_types(
             failure_type_code, PlotTypes.CDF)
         weibull_fit.plot()
@@ -97,4 +101,49 @@ class ImageHandler:
 
         plt.savefig(image_path)
         plt.close()
+        return image_path
+
+    def get_hazard_function_plot(self, failure_type_code: str, lifetimes: list, initial_guess: list = None):
+        """Plots the hazard functions for the given failure type code and lifetimes.
+
+        Args:
+            failure_type_code (str): _description_
+            lifetimes (list): _description_
+        """
+        # set image path
+        image_path = self.get_image_path_for_type_code_plot_types(
+            failure_type_code, PlotTypes.HAZARD_FUNCTION)
+        Processor = LifetimeProcessor(lifetimes)
+        simplified_lifetime_array, simplified_cenosring_array = Processor.get_simplified_lifetime_arrays()
+
+        # Fit non parametric model
+        nelson_aalen_fit = DISTRIBUTION_FITTER.fit_non_parametric_distributions_to_data(
+            simplified_lifetime_array, simplified_cenosring_array)["nelson_aalen"]
+        # Fit parametric models
+        parametric_model_fits = DISTRIBUTION_FITTER.fit_parametric_distributions_to_data(
+            simplified_lifetime_array, simplified_cenosring_array, initial_guess)
+
+        weibull_fit = parametric_model_fits["weibull"]
+        exponential_fit = parametric_model_fits["exponential"]
+
+        # Sort simplified lifetime array from smallest to largest
+        simplified_lifetime_array.sort()
+        plt.figure()
+
+        plt.step(simplified_lifetime_array, nelson_aalen_fit.Hf(
+            simplified_lifetime_array), label="Nelson-Aalen")
+        plt.plot(simplified_lifetime_array, weibull_fit.Hf(
+            simplified_lifetime_array), label="Weibull")
+        plt.plot(simplified_lifetime_array, exponential_fit.Hf(
+            simplified_lifetime_array), label="Exponential")
+        # add legend to upper left
+        plt.legend(loc='upper left')
+
+        # Set title
+        plt.title(f"{failure_type_code} Hazard Function")
+        # Set clear labels
+        plt.xlabel('Time in Hours')
+        plt.ylabel('Hazard Function')
+        plt.savefig(image_path)
+        plt.close
         return image_path
