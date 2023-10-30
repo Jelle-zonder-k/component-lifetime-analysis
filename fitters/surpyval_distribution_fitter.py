@@ -45,6 +45,20 @@ class DistributionFitter:
             "kaplan_meier": kaplan_meier_fit
         }
 
+    def get_model_parameters(self, lifetime_array, censoring_array, initial_guess: list = None) -> dict:
+        # Fits the models and returns the parameters as variables
+        model_parameters = self.fit_parametric_distributions_to_data(
+            lifetime_array, censoring_array, initial_guess)
+        return {
+            "weibull": {
+                "alpha": model_parameters["weibull"].params[0],
+                "beta": model_parameters["weibull"].params[1],
+            },
+            "exponential": {
+                "lambda": model_parameters["exponential"].params[0],
+            }
+        }
+
     def fit_weibull_with_initial_guess(self, lifetime_array, censoring_array, initial_guess: list = []) -> dict:
         """Fits a Weibull distribution to the data using an initial guess.
         Args:

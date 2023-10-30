@@ -304,7 +304,7 @@ class ComponentDataHandler:
 
     def get_test_statistics_dict(self, lifetimes: list, number_of_samples=1000, initial_guess: list = []) -> dict:
         # get bootstrapped test statistics
-        bootstrap_dict = self.get_bootstrap_dict(
+        bootstrap_dict = self.get_bootstrap_test_statistics(
             lifetimes, number_of_samples, initial_guess)
 
         # get original test statistics
@@ -324,17 +324,29 @@ class ComponentDataHandler:
         }
         return test_statistics
 
-    def get_bootstrap_dict(self, lifetimes: list, number_of_samples=None, initial_guess: list = []) -> dict:
+    def get_bootstrap_test_statistics(self, lifetimes: list, number_of_samples=None, initial_guess: list = []) -> dict:
         # Extract lifetimes and censoring arrays
         processor = LifetimeProcessor(lifetimes)
         simplified_lifetime_array, simplified_censoring_array = processor.get_simplified_lifetime_arrays()
         # Initialise the statistical test handler
         test_handler = BootstrapHandler(
             simplified_lifetime_array, simplified_censoring_array, initial_guess)
-        # Generate bootstrap dict
-        bootstrap_dict = test_handler.bootstrap_test_statistic_values(
+        # Generate statistical test bootstrap dict
+        test_statistic_bootstrap_dict = test_handler.bootstrap_test_statistic_values(
             number_of_samples)
-        return bootstrap_dict
+        return test_statistic_bootstrap_dict
+
+    def get_bootstrap_model_parameters(self, lifetimes: list, number_of_samples=None, initial_guess: list = []) -> dict:
+        # Extract lifetimes and censoring arrays
+        processor = LifetimeProcessor(lifetimes)
+        simplified_lifetime_array, simplified_censoring_array = processor.get_simplified_lifetime_arrays()
+        # Initialise the statistical test handler
+        test_handler = BootstrapHandler(
+            simplified_lifetime_array, simplified_censoring_array, initial_guess)
+        # Generate statistical test bootstrap dict
+        model_parameter_bootstrap_dict = test_handler.bootstrap_model_parameters(
+            number_of_samples)
+        return model_parameter_bootstrap_dict
 
     def get_test_statistics(self, lifetimes: list, initial_guess: list = []):
         # Extract lifetimes and censoring arrays

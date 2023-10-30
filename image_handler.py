@@ -33,7 +33,9 @@ class ImageHandler:
         lifetime_array, censoring_array = Processor.get_lifetime_arrays()
         exponential_fit = sp.Exponential.fit(lifetime_array, censoring_array)
         image_path = self.get_image_path_for_type_code_plot_types(
-            failure_type_code, PlotTypes.CDF)
+            f"{failure_type_code}_EXP", PlotTypes.CDF)
+        plt.figure()
+        plt.xlabel("Lifetime in Hours")
         exponential_fit.plot()
         plt.title(f"{failure_type_code} Exponential Model")
         plt.show()
@@ -55,10 +57,11 @@ class ImageHandler:
         weibull_fit = sp.Weibull.fit(
             lifetime_array, censoring_array, init=initial_guess)
         image_path = self.get_image_path_for_type_code_plot_types(
-            failure_type_code, PlotTypes.CDF)
+            f"{failure_type_code}_WEIBULL", PlotTypes.CDF)
+        plt.figure()
         weibull_fit.plot()
         plt.title(f"{failure_type_code} Weibull Model")
-        plt.show()
+        plt.xlabel('Lifetime in Hours')
         plt.savefig(image_path)
         plt.close
         return image_path
@@ -130,12 +133,12 @@ class ImageHandler:
         simplified_lifetime_array.sort()
         plt.figure()
 
-        plt.step(simplified_lifetime_array, nelson_aalen_fit.Hf(
-            simplified_lifetime_array), label="Nelson-Aalen")
         plt.plot(simplified_lifetime_array, weibull_fit.Hf(
             simplified_lifetime_array), label="Weibull")
         plt.plot(simplified_lifetime_array, exponential_fit.Hf(
             simplified_lifetime_array), label="Exponential")
+        plt.step(simplified_lifetime_array, nelson_aalen_fit.Hf(
+            simplified_lifetime_array), label="Nelson-Aalen")
         # add legend to upper left
         plt.legend(loc='upper left')
 
